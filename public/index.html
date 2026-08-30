@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Email Tracker</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f5f5f7; color: #1a1a1a; }
+  header { background: #1a1a2e; color: white; padding: 1rem 1.5rem; }
+  header h1 { margin: 0; font-size: 1.2rem; }
+  nav { display: flex; gap: 0.5rem; padding: 0.75rem 1.5rem; background: white; border-bottom: 1px solid #ddd; flex-wrap: wrap; }
+  nav button { background: none; border: 1px solid #ccc; border-radius: 6px; padding: 0.4rem 0.8rem; cursor: pointer; font-size: 0.9rem; }
+  nav button.active { background: #1a1a2e; color: white; border-color: #1a1a2e; }
+  main { padding: 1.5rem; max-width: 1000px; margin: 0 auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+  table { width: 100%; border-collapse: collapse; background: white; margin-top: 1rem; }
+  th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee; font-size: 0.85rem; }
+  th { background: #fafafa; }
+  .card { background: white; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .stat-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .stat { flex: 1; min-width: 120px; background: white; border-radius: 8px; padding: 1rem; text-align: center; }
+  .stat .value { font-size: 1.6rem; font-weight: 600; }
+  .stat .label { font-size: 0.75rem; color: #666; text-transform: uppercase; }
+  textarea, input, select { width: 100%; box-sizing: border-box; padding: 0.5rem; margin: 0.3rem 0 0.8rem; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
+  button.primary { background: #1a1a2e; color: white; border: none; border-radius: 6px; padding: 0.6rem 1.2rem; cursor: pointer; }
+  .empty { color: #888; font-style: italic; padding: 1rem 0; }
+  .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.75rem; }
+  .badge.ok { background: #d4edda; color: #155724; }
+  .badge.warn { background: #f8d7da; color: #721c24; }
+  .token-box { font-family: monospace; background: #f0f0f0; padding: 0.5rem; border-radius: 4px; word-break: break-all; }
+</style>
+</head>
+<body>
+
+<header><h1>Email Tracker</h1></header>
+
+<nav id="nav"></nav>
+
+<main id="main"></main>
+
+<script>
+const PAGES = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'contacts', label: 'Contacts' },
+  { id: 'supplier', label: 'Supplier List' },
+  { id: 'new-campaign', label: 'New Campaign' },
+  { id: 'campaigns', label: 'Campaigns' },
+  { id: 'needs-attention', label: 'Needs Attention' },
+  { id: 'extension-sync', label: 'Extension Sync' },
+  { id: 'reputation', label: 'Reputation' },
+];
+
+const nav = document.getElementById('nav');
+const main = document.getElementById('main');
+
+PAGES.forEach(p => {
+  const btn = document.createElement('button');
+  btn.textContent = p.label;
+  btn.dataset.page = p.id;
+  btn.onclick = () => showPage(p.id);
+  nav.appendChild(btn);
+});
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+function el(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html.trim();
+  return div.firstChild;
+}
+
+async function showPage(id) {
+  [...nav.children].forEach(b => b.classList.toggle('active', b.dataset.page === id));
+  main.innerHTML = '<p>Loading…</p>';
+  try {
+    const renderer = RENDERERS[id];
+    main.innerHTML = '';
+    main.appendChild(await renderer());
+  } catch (err) {
+    main.innerHTML = `<div class="card">Error: ${err.message}</div>`;
+  }
+}
+
+function contactsTable(contacts, withSubscribed) {
+  if (contacts.length === 0) return el('<div class="empty">No contacts yet.</div>');
+  const rows = contacts.map(c => `
+    <tr>
+      <td>${c.email}</td>
+      <td>${c.name || ''}</td>
+      <td>${c.company || ''}</td>
+      <td>${c.phone || ''}</td>
+      ${withSubscribed ? `<td>${c.subscribed ? '<span class="badge ok">subscribed</span>' : '<span class="badge warn">unsubscribed</span>'}</td>` : ''}
+    </tr>`).join('');
+  return el(`<table><thead><tr><th>Email</th><th>Name</th><th>Company</th><th>Phone</th>${withSubscribed ? '<th>Status</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>`);
+}
+
+const RENDERERS = {
+  dashboard: async () => {
+    const [contacts, campaigns, flags] = await Promise.all([
+      api('/api/contacts'), api('/api/campaigns'), api('/api/flags'),
+    ]);
+    const wrap = el('<div></div>');
+    wrap.appendChild(el(`
+      <div class="stat-row">
+        <div class="stat"><div class="value">${contacts.length}</div><div class="label">Contacts</div></div>
+        <div class="stat"><div class="value">${campaigns.length}</div><div class="label">Campaigns</div></div>
+        <div class="stat"><div class="value">${flags.length}</div><div class="label">Needs Attention</div></div>
+      </div>
+    `));
+    return wrap;
+  },
+
+  contacts: async () => {
+    const contacts = await api('/api/contacts');
+    const wrap = el('<div><div class="card"><h2>Contacts (sendable list)</h2></div></div>');
+    wrap.appendChild(contactsTable(contacts, true));
+    return wrap;
+  },
+
+  supplier: async () => {
+    const contacts = await api('/api/supplier-contacts');
+    const wrap = el('<div><div class="card"><h2>Supplier List (view-only)</h2><p style="color:#666;font-size:0.85rem">Never used for sending or tracking.</p></div></div>');
+    wrap.appendChild(contactsTable(contacts, false));
+    return wrap;
+  },
+
+  'new-campaign': async () => {
+    const recipients = await api('/api/contacts');
+    const subscribedCount = recipients.filter(c => c.subscribed).length;
+    const wrap = el(`
+      <div class="card">
+        <h2>New Campaign</h2>
+        <label>Name</label>
+        <input id="camp-name" placeholder="e.g. October update" />
+        <label>Subject</label>
+        <input id="camp-subject" placeholder="Subject line" />
+        <label>Track</label>
+        <select id="camp-track">
+          <option value="B">Track B — custom domain (bulk)</option>
+          <option value="A">Track A — established mailbox (low volume)</option>
+        </select>
+        <label>Body (HTML)</label>
+        <textarea id="camp-body" rows="8" placeholder="Hi {{name}}, ..."></textarea>
+        <p style="font-size:0.85rem;color:#666">Will send to all ${subscribedCount} subscribed contact(s). No recipient filtering in this phase.</p>
+        <button class="primary" id="camp-save">Save Draft</button>
+        <div id="camp-result" style="margin-top:1rem"></div>
+      </div>
+    `);
+    wrap.querySelector('#camp-save').onclick = async () => {
+      const resultBox = wrap.querySelector('#camp-result');
+      try {
+        const campaign = await api('/api/campaigns', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: wrap.querySelector('#camp-name').value,
+            subject: wrap.querySelector('#camp-subject').value,
+            track: wrap.querySelector('#camp-track').value,
+            body: wrap.querySelector('#camp-body').value,
+          }),
+        });
+        resultBox.innerHTML = `<span class="badge ok">Draft saved</span> Campaign #${campaign.id}. Go to Campaigns to send it.`;
+      } catch (err) {
+        resultBox.innerHTML = `<span class="badge warn">${err.message}</span>`;
+      }
+    };
+    return wrap;
+  },
+
+  campaigns: async () => {
+    const campaigns = await api('/api/campaigns');
+    const wrap = el('<div><div class="card"><h2>Campaigns</h2></div></div>');
+    if (campaigns.length === 0) {
+      wrap.appendChild(el('<div class="empty">No campaigns yet — create one under New Campaign.</div>'));
+      return wrap;
+    }
+    for (const c of campaigns) {
+      const card = el(`
+        <div class="card">
+          <strong>${c.name}</strong> — ${c.subject}
+          <span class="badge ${c.status === 'sent' ? 'ok' : 'warn'}">${c.status}</span>
+          (Track ${c.track})
+          <div style="margin-top:0.5rem">
+            ${c.status === 'draft' ? '<button class="send-btn primary">Send now</button>' : ''}
+            <button class="stats-btn">View stats</button>
+          </div>
+          <div class="stats-box" style="margin-top:0.5rem"></div>
+        </div>
+      `);
+      const sendBtn = card.querySelector('.send-btn');
+      if (sendBtn) {
+        sendBtn.onclick = async () => {
+          sendBtn.disabled = true;
+          sendBtn.textContent = 'Sending…';
+          try {
+            const result = await api(`/api/campaigns/${c.id}/send`, { method: 'POST' });
+            alert(result.throttled ? `Throttled: ${result.reason}` : `Sent (simulated=${result.simulated}). Recipients: ${result.recipientCount}`);
+            showPage('campaigns');
+          } catch (err) {
+            alert('Send failed: ' + err.message);
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send now';
+          }
+        };
+      }
+      card.querySelector('.stats-btn').onclick = async () => {
+        const stats = await api(`/api/campaigns/${c.id}/stats`);
+        card.querySelector('.stats-box').innerHTML = `<pre style="white-space:pre-wrap;font-size:0.8rem">${JSON.stringify(stats, null, 2)}</pre>`;
+      };
+      wrap.appendChild(card);
+    }
+    return wrap;
+  },
+
+  'needs-attention': async () => {
+    const flags = await api('/api/flags');
+    const wrap = el('<div><div class="card"><h2>Needs Attention</h2><p style="color:#666;font-size:0.85rem">Populated once flagging rules (Stage 3) are built.</p></div></div>');
+    if (flags.length === 0) {
+      wrap.appendChild(el('<div class="empty">No flags yet.</div>'));
+      return wrap;
+    }
+    const rows = flags.map(f => `<tr><td>${f.email}</td><td>${f.reason}</td><td>${f.created_at}</td></tr>`).join('');
+    wrap.appendChild(el(`<table><thead><tr><th>Contact</th><th>Reason</th><th>Created</th></tr></thead><tbody>${rows}</tbody></table>`));
+    return wrap;
+  },
+
+  'extension-sync': async () => {
+    const tokens = await api('/api/sync-tokens');
+    const wrap = el(`
+      <div>
+        <div class="card">
+          <h2>Extension Sync</h2>
+          <p style="font-size:0.85rem;color:#666">
+            Give the browser extension a token below, plus these two URLs:<br>
+            <code>${location.origin}/extension-sync/dedup</code><br>
+            <code>${location.origin}/extension-sync/supplier</code>
+          </p>
+          <button class="primary" id="gen-token">Generate new token</button>
+          <div id="new-token" style="margin-top:0.8rem"></div>
+        </div>
+        <div class="card"><h3>Existing tokens</h3><div id="token-list"></div></div>
+        <div class="card">
+          <h3>Manual CSV paste</h3>
+          <label>Target list</label>
+          <select id="paste-target"><option value="dedup">Dedup (sendable)</option><option value="supplier">Supplier (view-only)</option></select>
+          <label>Paste CSV or TSV (with header row)</label>
+          <textarea id="paste-csv" rows="6" placeholder="email,name,company,phone&#10;a@example.com,Alice,Acme,555-1234"></textarea>
+          <button class="primary" id="paste-import">Import</button>
+          <div id="paste-result" style="margin-top:0.5rem"></div>
+        </div>
+      </div>
+    `);
+
+    function renderTokens() {
+      const list = wrap.querySelector('#token-list');
+      if (tokens.length === 0) { list.innerHTML = '<div class="empty">No tokens yet.</div>'; return; }
+      list.innerHTML = tokens.map(t => `<div class="token-box">${t.token} ${t.revoked ? '(revoked)' : ''} — ${t.label || 'unlabeled'}</div>`).join('');
+    }
+    renderTokens();
+
+    wrap.querySelector('#gen-token').onclick = async () => {
+      const created = await api('/api/sync-tokens', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+      });
+      wrap.querySelector('#new-token').innerHTML = `<div class="token-box">New token: ${created.token}</div>`;
+      tokens.unshift(created);
+      renderTokens();
+    };
+
+    wrap.querySelector('#paste-import').onclick = async () => {
+      const target = wrap.querySelector('#paste-target').value;
+      const csv = wrap.querySelector('#paste-csv').value;
+      const resultBox = wrap.querySelector('#paste-result');
+      try {
+        const result = await api(`/api/import/${target}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ csv }),
+        });
+        resultBox.innerHTML = `<span class="badge ok">Imported</span> added ${result.addedCount}, updated ${result.updatedCount}, skipped ${result.skippedCount}`;
+      } catch (err) {
+        resultBox.innerHTML = `<span class="badge warn">${err.message}</span>`;
+      }
+    };
+
+    return wrap;
+  },
+
+  reputation: async () => {
+    const status = await api('/api/reputation/status');
+    return el(`
+      <div class="card">
+        <h2>Sender Reputation</h2>
+        <div class="stat-row">
+          <div class="stat"><div class="value">${status.bounceRate}%</div><div class="label">Bounce rate</div></div>
+          <div class="stat"><div class="value">${status.complaintRate}%</div><div class="label">Complaint rate</div></div>
+          <div class="stat"><div class="value">${status.daysSinceWarmupStart}</div><div class="label">Days since warm-up start</div></div>
+        </div>
+        <p>Warm-up active: <strong>${status.warmupActive}</strong></p>
+        <p>Track B daily cap: <strong>${status.trackB.dailyCap ?? 'no cap'}</strong>, sent today: ${status.trackB.sentToday}, remaining: ${status.trackB.remainingToday ?? '—'}</p>
+        <p>Track A sent today: ${status.trackA.sentToday}</p>
+        <p>Status: ${status.throttled ? `<span class="badge warn">THROTTLED — ${status.throttleReason}</span>` : '<span class="badge ok">Healthy</span>'}</p>
+      </div>
+    `);
+  },
+};
+
+showPage('dashboard');
+</script>
+</body>
+</html>
