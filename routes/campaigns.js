@@ -3,6 +3,8 @@ const multer = require('multer');
 const { getDb } = require('../db');
 const { sendCampaign } = require('../send');
 const { checkThrottle } = require('../lib/reputation');
+const { checkContentRisk } = require('../lib/contentCheck');
+const { getContactIdsForTag } = require('../lib/tags');
 
 const router = express.Router();
 
@@ -68,13 +70,24 @@ router.get('/:id/attachment', (req, res) => {
 });
 
 // Recipients this campaign would go to if sent now: all subscribed
-// dedup_contacts (no segmentation/filtering in Phase 1).
+// dedup_contacts, optionally narrowed to one tag.
 router.get('/:id/recipients', (req, res) => {
   const db = getDb();
-  const rows = db
+  let rows = db
     .prepare('SELECT id, email, name, company FROM dedup_contacts WHERE subscribed = 1')
     .all();
+  if (req.query.tag) {
+    const idsWithTag = new Set(getContactIdsForTag(req.query.tag));
+    rows = rows.filter((c) => idsWithTag.has(c.id));
+  }
   res.json(rows);
+});
+
+// Advisory spam-trigger scan the New Campaign page can call before even
+// saving a draft — never blocks, just informs.
+router.post('/content-check', (req, res) => {
+  const { subject, body } = req.body || {};
+  res.json(checkContentRisk(subject || '', body || ''));
 });
 
 router.post('/:id/send', async (req, res) => {

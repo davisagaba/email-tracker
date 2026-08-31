@@ -6,6 +6,7 @@ const { checkThrottle, incrementDailySendLog, getDailyCap, getTodaySentCount } =
 const { getSeedAddresses, logSeedResults } = require('./lib/seedTest');
 const { notifyCampaignSent } = require('./lib/discord');
 const { buildMessageId } = require('./lib/messageId');
+const { checkContentRisk, stripHtml } = require('./lib/contentCheck');
 
 const SEND_DELAY_MS = Number(process.env.SEND_DELAY_MS || 200);
 const PUBLIC_URL = process.env.PUBLIC_URL || 'http://localhost:3000';
@@ -31,6 +32,8 @@ async function sendCampaign(campaignId) {
   if (throttle.throttled) {
     return { sent: false, throttled: true, reason: throttle.reason };
   }
+
+  const contentRisk = checkContentRisk(campaign.subject, campaign.body || '');
 
   const track = campaign.track === 'A' ? 'A' : 'B';
   const { transport, from, configured } = buildTransport(track);
@@ -76,6 +79,7 @@ async function sendCampaign(campaignId) {
         to: contact.email,
         subject: personalize(campaign.subject, contact),
         html: trackedBody,
+        text: stripHtml(trackedBody),
         messageId: buildMessageId(trackingId),
         attachments,
       });
@@ -121,6 +125,7 @@ async function sendCampaign(campaignId) {
     actuallySentCount: sentCount,
     cappedCount,
     seedAddressCount: seedAddresses.length,
+    contentRisk,
   };
 }
 

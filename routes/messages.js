@@ -4,20 +4,25 @@ const { buildTransport } = require('../lib/mailer');
 
 const router = express.Router();
 
-// Reply feed — recent replies across all contacts (product-spec.md Stage 5).
+// Reply feed — recent replies across all contacts, merged across both
+// sending tracks (a lightweight master inbox at the scale of two
+// mailboxes instead of twenty, per the Smartlead-style pattern).
 router.get('/replies', (req, res) => {
   const db = getDb();
   const rows = db
     .prepare(
-      `SELECT m.*, c.email, c.name, c.company
+      `SELECT m.*, c.email, c.name, c.company,
+         camp.track AS track
        FROM messages m
        JOIN dedup_contacts c ON c.id = m.contact_id
+       LEFT JOIN sends s ON s.tracking_id = m.tracking_id
+       LEFT JOIN campaigns camp ON camp.id = s.campaign_id
        WHERE m.direction = 'inbound'
        ORDER BY m.created_at DESC
        LIMIT 50`
     )
     .all();
-  res.json(rows);
+  res.json(rows.map((r) => ({ ...r, read: !!r.read })));
 });
 
 // Full email thread for one contact — read history in one place, not just
@@ -27,7 +32,15 @@ router.get('/contacts/:id/messages', (req, res) => {
   const rows = db
     .prepare('SELECT * FROM messages WHERE contact_id = ? ORDER BY created_at ASC')
     .all(req.params.id);
-  res.json(rows);
+  res.json(rows.map((r) => ({ ...r, read: !!r.read })));
+});
+
+// Marks every inbound message in a contact's thread as read — called when
+// the dashboard opens that thread.
+router.post('/contacts/:id/messages/mark-read', (req, res) => {
+  const db = getDb();
+  db.prepare(`UPDATE messages SET read = 1 WHERE contact_id = ? AND direction = 'inbound'`).run(req.params.id);
+  res.json({ marked: true });
 });
 
 // Send a reply directly from the dashboard, threaded into the same

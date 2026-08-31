@@ -120,20 +120,53 @@ CREATE TABLE IF NOT EXISTS daily_send_log (
   count INTEGER NOT NULL DEFAULT 0,
   UNIQUE(day, track)
 );
+
+CREATE TABLE IF NOT EXISTS tags (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS contact_tags (
+  contact_id INTEGER NOT NULL REFERENCES dedup_contacts(id),
+  tag_id INTEGER NOT NULL REFERENCES tags(id),
+  UNIQUE(contact_id, tag_id)
+);
 `;
 
 // Columns added after the initial CREATE TABLE need an explicit migration
 // since "CREATE TABLE IF NOT EXISTS" doesn't touch existing tables.
 function migrate(database) {
-  const campaignColumns = database.prepare(`PRAGMA table_info(campaigns)`).all().map((c) => c.name);
-  const addColumn = (name, def) => {
-    if (!campaignColumns.includes(name)) {
-      database.exec(`ALTER TABLE campaigns ADD COLUMN ${name} ${def}`);
+  // Returns the set of column names that were actually added, so a
+  // one-time backfill can run only when a column is genuinely new —
+  // never on every boot, which would stomp on values set since.
+  function addColumns(table, columns) {
+    const existing = database.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+    const added = new Set();
+    for (const [name, def] of Object.entries(columns)) {
+      if (!existing.includes(name)) {
+        database.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${def}`);
+        added.add(name);
+      }
     }
-  };
-  addColumn('attachment_filename', 'TEXT');
-  addColumn('attachment_content_type', 'TEXT');
-  addColumn('attachment_data', 'BLOB');
+    return added;
+  }
+
+  addColumns('campaigns', {
+    attachment_filename: 'TEXT',
+    attachment_content_type: 'TEXT',
+    attachment_data: 'BLOB',
+  });
+
+  const messagesAdded = addColumns('messages', {
+    read: 'INTEGER NOT NULL DEFAULT 1',
+    tracking_id: 'TEXT',
+  });
+  if (messagesAdded.has('read')) {
+    // One-time backfill: pre-existing inbound messages predate the notion
+    // of read/unread, so treat them as already read (rather than lighting
+    // up every past reply as newly unread on the first boot after upgrade).
+    database.exec(`UPDATE messages SET read = 1 WHERE direction = 'inbound'`);
+  }
 }
 
 function getDb() {

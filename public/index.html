@@ -4,41 +4,132 @@
 <meta charset="utf-8" />
 <title>Email Tracker</title>
 <style>
-  body { font-family: system-ui, sans-serif; margin: 0; background: #f5f5f7; color: #1a1a1a; }
-  header { background: #1a1a2e; color: white; padding: 1rem 1.5rem; }
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f5f7; --fg: #1a1a1a; --fg-muted: #666; --fg-faint: #999;
+    --card-bg: #ffffff; --header-bg: #1a1a2e; --header-fg: #ffffff;
+    --border: #ddd; --border-soft: #eee; --input-border: #ccc; --th-bg: #fafafa;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06);
+    --ok-bg: #d4edda; --ok-fg: #155724;
+    --warn-bg: #f8d7da; --warn-fg: #721c24;
+    --caution-bg: #fff3cd; --caution-fg: #856404;
+    --info-bg: #d1e7ff; --info-fg: #084298;
+    --tag-bg: #eef0ff; --tag-fg: #3a3f9e;
+    --track-a-bg: #fdf1e3; --track-a-fg: #8a5a1c;
+    --track-b-bg: #eef0ff; --track-b-fg: #3a3f9e;
+    --funnel-track: #f0f0f0;
+    --health-good: #1c7c3f; --health-warn: #c9992e; --health-bad: #c0392b;
+    --code-bg: #f0f0f0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16181d; --fg: #e8e9ec; --fg-muted: #a2a6b0; --fg-faint: #7a7e88;
+      --card-bg: #1f222a; --header-bg: #0e1016; --header-fg: #f0f0f2;
+      --border: #333743; --border-soft: #2a2d36; --input-border: #3a3e4a; --th-bg: #262a33;
+      --shadow: 0 1px 3px rgba(0,0,0,0.4);
+      --ok-bg: #163a24; --ok-fg: #6fd695;
+      --warn-bg: #3d1e1e; --warn-fg: #f2a19a;
+      --caution-bg: #3a2f14; --caution-fg: #f0cb6e;
+      --info-bg: #1b2d47; --info-fg: #9dc4f7;
+      --tag-bg: #262a4a; --tag-fg: #b3b8f5;
+      --track-a-bg: #3a2c17; --track-a-fg: #f0b877;
+      --track-b-bg: #232750; --track-b-fg: #a9aef5;
+      --funnel-track: #2a2d36;
+      --health-good: #4fbf74; --health-warn: #e0b04f; --health-bad: #e0685c;
+      --code-bg: #262a33;
+    }
+  }
+  :root[data-theme="light"] { color-scheme: light; }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #16181d; --fg: #e8e9ec; --fg-muted: #a2a6b0; --fg-faint: #7a7e88;
+    --card-bg: #1f222a; --header-bg: #0e1016; --header-fg: #f0f0f2;
+    --border: #333743; --border-soft: #2a2d36; --input-border: #3a3e4a; --th-bg: #262a33;
+    --shadow: 0 1px 3px rgba(0,0,0,0.4);
+    --ok-bg: #163a24; --ok-fg: #6fd695;
+    --warn-bg: #3d1e1e; --warn-fg: #f2a19a;
+    --caution-bg: #3a2f14; --caution-fg: #f0cb6e;
+    --info-bg: #1b2d47; --info-fg: #9dc4f7;
+    --tag-bg: #262a4a; --tag-fg: #b3b8f5;
+    --track-a-bg: #3a2c17; --track-a-fg: #f0b877;
+    --track-b-bg: #232750; --track-b-fg: #a9aef5;
+    --funnel-track: #2a2d36;
+    --health-good: #4fbf74; --health-warn: #e0b04f; --health-bad: #e0685c;
+    --code-bg: #262a33;
+  }
+
+  body { font-family: system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--fg); }
+  header { background: var(--header-bg); color: var(--header-fg); padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; }
   header h1 { margin: 0; font-size: 1.2rem; }
-  nav { display: flex; gap: 0.5rem; padding: 0.75rem 1.5rem; background: white; border-bottom: 1px solid #ddd; flex-wrap: wrap; }
-  nav button { background: none; border: 1px solid #ccc; border-radius: 6px; padding: 0.4rem 0.8rem; cursor: pointer; font-size: 0.9rem; }
-  nav button.active { background: #1a1a2e; color: white; border-color: #1a1a2e; }
+  #theme-toggle { background: none; border: 1px solid rgba(255,255,255,0.4); color: inherit; border-radius: 6px; padding: 0.3rem 0.7rem; cursor: pointer; font-size: 0.8rem; }
+  nav { display: flex; gap: 0.5rem; padding: 0.75rem 1.5rem; background: var(--card-bg); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  nav button { background: none; border: 1px solid var(--input-border); color: var(--fg); border-radius: 6px; padding: 0.4rem 0.8rem; cursor: pointer; font-size: 0.9rem; }
+  nav button.active { background: var(--header-bg); color: var(--header-fg); border-color: var(--header-bg); }
   main { padding: 1.5rem; max-width: 1000px; margin: 0 auto; }
   .page { display: none; }
   .page.active { display: block; }
-  table { width: 100%; border-collapse: collapse; background: white; margin-top: 1rem; }
-  th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee; font-size: 0.85rem; }
-  th { background: #fafafa; }
-  .card { background: white; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  table { width: 100%; border-collapse: collapse; background: var(--card-bg); margin-top: 1rem; }
+  th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border-soft); font-size: 0.85rem; }
+  th { background: var(--th-bg); }
+  .card { background: var(--card-bg); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; box-shadow: var(--shadow); }
   .stat-row { display: flex; gap: 1rem; flex-wrap: wrap; }
-  .stat { flex: 1; min-width: 120px; background: white; border-radius: 8px; padding: 1rem; text-align: center; }
+  .stat { flex: 1; min-width: 120px; background: var(--card-bg); border-radius: 8px; padding: 1rem; text-align: center; }
   .stat .value { font-size: 1.6rem; font-weight: 600; }
-  .stat .label { font-size: 0.75rem; color: #666; text-transform: uppercase; }
-  textarea, input, select { width: 100%; box-sizing: border-box; padding: 0.5rem; margin: 0.3rem 0 0.8rem; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
-  button.primary { background: #1a1a2e; color: white; border: none; border-radius: 6px; padding: 0.6rem 1.2rem; cursor: pointer; }
-  .empty { color: #888; font-style: italic; padding: 1rem 0; }
+  .stat .label { font-size: 0.75rem; color: var(--fg-muted); text-transform: uppercase; }
+  textarea, input, select { width: 100%; box-sizing: border-box; padding: 0.5rem; margin: 0.3rem 0 0.8rem; border: 1px solid var(--input-border); border-radius: 4px; font-family: inherit; background: var(--card-bg); color: var(--fg); }
+  button { color: var(--fg); }
+  button.primary { background: var(--header-bg); color: var(--header-fg); border: none; border-radius: 6px; padding: 0.6rem 1.2rem; cursor: pointer; }
+  .empty { color: var(--fg-faint); font-style: italic; padding: 1rem 0; }
   .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.75rem; }
-  .badge.ok { background: #d4edda; color: #155724; }
-  .badge.warn { background: #f8d7da; color: #721c24; }
-  .token-box { font-family: monospace; background: #f0f0f0; padding: 0.5rem; border-radius: 4px; word-break: break-all; }
+  .badge.ok { background: var(--ok-bg); color: var(--ok-fg); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn-fg); }
+  .badge.caution { background: var(--caution-bg); color: var(--caution-fg); }
+  .badge.info { background: var(--info-bg); color: var(--info-fg); }
+  .token-box { font-family: monospace; background: var(--code-bg); padding: 0.5rem; border-radius: 4px; word-break: break-all; }
+  .tag-chip { background: var(--tag-bg); color: var(--tag-fg); border-radius: 5px; padding: 0.1rem 0.45rem; font-size: 0.72rem; margin-right: 0.2rem; display: inline-flex; align-items: center; gap: 0.25rem; }
+  .tag-chip .remove-tag { cursor: pointer; font-weight: 700; }
+  .filter-chip { border: 1px solid var(--input-border); border-radius: 99px; padding: 0.2rem 0.65rem; font-size: 0.75rem; color: var(--fg-muted); cursor: pointer; background: none; }
+  .filter-chip.active { background: var(--header-bg); color: var(--header-fg); border-color: var(--header-bg); }
+  .score-bar-track { width: 70px; height: 6px; background: var(--funnel-track); border-radius: 99px; overflow: hidden; display: inline-block; vertical-align: middle; }
+  .score-bar-fill { height: 100%; }
+  .funnel-col { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; }
+  .funnel-track { height: 10px; background: var(--funnel-track); border-radius: 99px; overflow: hidden; }
+  .funnel-fill { height: 100%; }
 </style>
 </head>
 <body>
 
-<header><h1>Email Tracker</h1></header>
+<header>
+  <h1>Email Tracker</h1>
+  <button id="theme-toggle">🌙 Dark mode</button>
+</header>
 
 <nav id="nav"></nav>
 
 <main id="main"></main>
 
 <script>
+try {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+} catch {}
+
+function updateThemeToggleLabel() {
+  const btn = document.getElementById('theme-toggle');
+  const current = document.documentElement.dataset.theme;
+  btn.textContent = current === 'dark' ? '☀️ Light mode' : '🌙 Dark mode';
+}
+
+document.getElementById('theme-toggle').onclick = () => {
+  const isDark = document.documentElement.dataset.theme === 'dark'
+    || (!document.documentElement.dataset.theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const next = isDark ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('theme', next); } catch {}
+  updateThemeToggleLabel();
+};
+updateThemeToggleLabel();
+
 const PAGES = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'contacts', label: 'Contacts' },
@@ -71,10 +162,14 @@ async function api(path, opts) {
   return res.json();
 }
 
+// A <template> parses its content without the normal document context
+// rules — unlike a <div>, it correctly keeps a bare <tr>/<td> fragment
+// instead of silently stripping it (table content has a strict parsing
+// model outside an actual <table>).
 function el(html) {
-  const div = document.createElement('div');
-  div.innerHTML = html.trim();
-  return div.firstChild;
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.firstElementChild;
 }
 
 async function showPage(id) {
@@ -89,17 +184,30 @@ async function showPage(id) {
   }
 }
 
-function contactsTable(contacts, withSubscribed, withThread) {
+function scoreColor(score) {
+  if (score >= 20) return 'var(--health-good)';
+  if (score >= 5) return 'var(--health-warn)';
+  return 'var(--fg-faint)';
+}
+
+function contactsTable(contacts, withSubscribed, withThread, withEngagement) {
   if (contacts.length === 0) return el('<div class="empty">No contacts yet.</div>');
-  const table = el(`<table><thead><tr><th>Email</th><th>Name</th><th>Company</th><th>Phone</th>${withSubscribed ? '<th>Status</th>' : ''}${withThread ? '<th></th>' : ''}</tr></thead><tbody></tbody></table>`);
+  const maxScore = withEngagement ? Math.max(1, ...contacts.map(c => c.engagementScore || 0)) : 1;
+  const table = el(`<table><thead><tr><th>Email</th><th>Name</th><th>Company</th><th>Phone</th>${withEngagement ? '<th>Tags</th><th>Engagement</th>' : ''}${withSubscribed ? '<th>Status</th>' : ''}${withThread ? '<th></th>' : ''}</tr></thead><tbody></tbody></table>`);
   const tbody = table.querySelector('tbody');
   for (const c of contacts) {
+    const pct = withEngagement ? Math.round(((c.engagementScore || 0) / maxScore) * 100) : 0;
+    const tagsHtml = withEngagement ? (c.tags || []).map(t => `<span class="tag-chip">${t}</span>`).join('') : '';
     const row = el(`
       <tr>
         <td>${c.email}</td>
         <td>${c.name || ''}</td>
         <td>${c.company || ''}</td>
         <td>${c.phone || ''}</td>
+        ${withEngagement ? `
+          <td>${tagsHtml}</td>
+          <td><span class="score-bar-track"><span class="score-bar-fill" style="width:${pct}%;background:${scoreColor(c.engagementScore || 0)}"></span></span> <span style="font-family:ui-monospace,monospace;font-size:0.78rem">${c.engagementScore || 0}</span></td>
+        ` : ''}
         ${withSubscribed ? `<td>${c.subscribed ? '<span class="badge ok">subscribed</span>' : '<span class="badge warn">unsubscribed</span>'}</td>` : ''}
         ${withThread ? '<td><button class="thread-btn">Thread</button></td>' : ''}
       </tr>`);
@@ -115,6 +223,7 @@ function contactsTable(contacts, withSubscribed, withThread) {
 // the Contacts page and the Inbox reply feed.
 async function showContactThread(contactId, email) {
   const [messages] = await Promise.all([api(`/api/contacts/${contactId}/messages`)]);
+  api(`/api/contacts/${contactId}/messages/mark-read`, { method: 'POST' }).catch(() => {});
   const wrap = el(`
     <div>
       <button id="back-btn" style="margin-bottom:1rem">&larr; Back</button>
@@ -184,9 +293,67 @@ const RENDERERS = {
   },
 
   contacts: async () => {
-    const contacts = await api('/api/contacts');
-    const wrap = el('<div><div class="card"><h2>Contacts (sendable list)</h2></div></div>');
-    wrap.appendChild(contactsTable(contacts, true, true));
+    const [contacts, allTags] = await Promise.all([api('/api/contacts'), api('/api/tags')]);
+    const wrap = el(`
+      <div>
+        <div class="card">
+          <h2 style="margin:0 0 0.6rem">Contacts (sendable list)</h2>
+          <div id="tag-filters" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.6rem"></div>
+          <div style="display:flex;gap:0.4rem;align-items:center">
+            <input id="new-tag-name" placeholder="Add a tag to a contact by email" style="margin:0;flex:1" />
+            <input id="new-tag-email" placeholder="contact@example.com" style="margin:0;flex:1" />
+            <button class="primary" id="add-tag-btn" style="white-space:nowrap">Add tag</button>
+          </div>
+          <div id="add-tag-result" style="margin-top:0.4rem"></div>
+        </div>
+        <div id="contacts-table-wrap"></div>
+      </div>
+    `);
+
+    const filterBox = wrap.querySelector('#tag-filters');
+    const tableWrap = wrap.querySelector('#contacts-table-wrap');
+    let activeTag = null;
+
+    function renderTable() {
+      const filtered = activeTag ? contacts.filter(c => (c.tags || []).includes(activeTag)) : contacts;
+      tableWrap.innerHTML = '';
+      tableWrap.appendChild(contactsTable(filtered, true, true, true));
+    }
+
+    function renderFilters() {
+      filterBox.innerHTML = '';
+      const allChip = el(`<button class="filter-chip ${!activeTag ? 'active' : ''}">All</button>`);
+      allChip.onclick = () => { activeTag = null; renderFilters(); renderTable(); };
+      filterBox.appendChild(allChip);
+      for (const tag of allTags) {
+        const chip = el(`<button class="filter-chip ${activeTag === tag.name ? 'active' : ''}">${tag.name}</button>`);
+        chip.onclick = () => { activeTag = tag.name; renderFilters(); renderTable(); };
+        filterBox.appendChild(chip);
+      }
+    }
+
+    wrap.querySelector('#add-tag-btn').onclick = async () => {
+      const tagName = wrap.querySelector('#new-tag-name').value.trim();
+      const email = wrap.querySelector('#new-tag-email').value.trim();
+      const resultBox = wrap.querySelector('#add-tag-result');
+      const contact = contacts.find(c => c.email === email);
+      if (!tagName || !contact) {
+        resultBox.innerHTML = `<span class="badge warn">Need a tag name and a matching contact email</span>`;
+        return;
+      }
+      try {
+        await api(`/api/contacts/${contact.id}/tags`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: tagName }),
+        });
+        resultBox.innerHTML = `<span class="badge ok">Tagged</span>`;
+        showPage('contacts');
+      } catch (err) {
+        resultBox.innerHTML = `<span class="badge warn">${err.message}</span>`;
+      }
+    };
+
+    renderFilters();
+    renderTable();
     return wrap;
   },
 
@@ -200,6 +367,16 @@ const RENDERERS = {
   'new-campaign': async () => {
     const recipients = await api('/api/contacts');
     const subscribedCount = recipients.filter(c => c.subscribed).length;
+
+    const BLOCKS = {
+      header: '<h1 style="font-family:sans-serif;color:#1a1a2e">{{company}}</h1>',
+      text: '<p style="font-family:sans-serif;font-size:15px;line-height:1.5">Hi {{name}}, </p>',
+      button: '<p><a href="https://example.com" style="display:inline-block;background:#1a1a2e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-family:sans-serif">Take a look</a></p>',
+      imageText: '<table><tr><td style="padding-right:16px"><img src="https://via.placeholder.com/120" width="120" alt="" /></td><td style="font-family:sans-serif;font-size:14px">Replace this image and text with your own.</td></tr></table>',
+      divider: '<hr style="border:none;border-top:1px solid #eee;margin:20px 0" />',
+      footer: '<p style="font-family:sans-serif;font-size:12px;color:#888">Sent by {{company}} — you can unsubscribe any time.</p>',
+    };
+
     const wrap = el(`
       <div class="card">
         <h2>New Campaign</h2>
@@ -213,16 +390,48 @@ const RENDERERS = {
           <option value="A">Track A — established mailbox (low volume)</option>
         </select>
         <label>Body (HTML)</label>
+        <div style="display:flex;gap:0.3rem;flex-wrap:wrap;margin-bottom:0.4rem">
+          <button class="filter-chip block-btn" data-block="header">+ Header</button>
+          <button class="filter-chip block-btn" data-block="text">+ Text</button>
+          <button class="filter-chip block-btn" data-block="button">+ Button</button>
+          <button class="filter-chip block-btn" data-block="imageText">+ Image + text</button>
+          <button class="filter-chip block-btn" data-block="divider">+ Divider</button>
+          <button class="filter-chip block-btn" data-block="footer">+ Footer</button>
+        </div>
         <textarea id="camp-body" rows="8" placeholder="Hi {{name}}, ..."></textarea>
         <label>Upload an HTML template (optional — fills the body above; any tracking/embed codes already in it are kept, our open/click tracking is layered on top)</label>
         <input type="file" id="camp-template-file" accept=".html,.htm" />
         <label>Attach a file to the email (optional — sent to every recipient as a real attachment, max 15MB)</label>
         <input type="file" id="camp-attachment-file" />
-        <p style="font-size:0.85rem;color:#666">Will send to all ${subscribedCount} subscribed contact(s). No recipient filtering in this phase.</p>
+        <button id="content-check-btn">Check for spam-trigger content</button>
+        <div id="content-check-result" style="margin-top:0.5rem"></div>
+        <p style="font-size:0.85rem;color:var(--fg-muted);margin-top:0.8rem">Will send to all ${subscribedCount} subscribed contact(s). No recipient filtering in this phase.</p>
         <button class="primary" id="camp-save">Save Draft</button>
         <div id="camp-result" style="margin-top:1rem"></div>
       </div>
     `);
+
+    wrap.querySelectorAll('.block-btn').forEach(btn => {
+      btn.onclick = () => {
+        const bodyField = wrap.querySelector('#camp-body');
+        bodyField.value += (bodyField.value ? '\n' : '') + BLOCKS[btn.dataset.block];
+      };
+    });
+
+    wrap.querySelector('#content-check-btn').onclick = async () => {
+      const resultBox = wrap.querySelector('#content-check-result');
+      const subject = wrap.querySelector('#camp-subject').value;
+      const body = wrap.querySelector('#camp-body').value;
+      const result = await api('/api/campaigns/content-check', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject, body }),
+      });
+      if (result.warnings.length === 0) {
+        resultBox.innerHTML = `<span class="badge ok">Looks clean</span> No common spam-trigger patterns found.`;
+      } else {
+        const badgeClass = result.riskLevel === 'high' ? 'warn' : 'caution';
+        resultBox.innerHTML = `<span class="badge ${badgeClass}">${result.riskLevel} risk</span><ul style="margin:0.4rem 0 0;padding-left:1.2rem;font-size:0.85rem">${result.warnings.map(w => `<li>${w}</li>`).join('')}</ul>`;
+      }
+    };
 
     wrap.querySelector('#camp-template-file').addEventListener('change', (e) => {
       const file = e.target.files[0];
@@ -291,8 +500,37 @@ const RENDERERS = {
         };
       }
       card.querySelector('.stats-btn').onclick = async () => {
-        const stats = await api(`/api/campaigns/${c.id}/stats`);
-        card.querySelector('.stats-box').innerHTML = `<pre style="white-space:pre-wrap;font-size:0.8rem">${JSON.stringify(stats, null, 2)}</pre>`;
+        const s = await api(`/api/campaigns/${c.id}/stats`);
+        const stages = [
+          { label: 'Sent', n: s.stats.sent, color: 'var(--header-bg)' },
+          { label: 'Opened', n: s.stats.open, color: 'var(--info-fg)' },
+          { label: 'Clicked', n: s.stats.click, color: 'var(--health-warn)' },
+          { label: 'Replied', n: s.stats.reply, color: 'var(--health-good)' },
+        ];
+        const base = s.stats.sent || 1;
+        const funnelHtml = stages.map(st => `
+          <div class="funnel-col">
+            <span style="font-size:0.7rem;color:var(--fg-muted);text-transform:uppercase">${st.label}</span>
+            <div class="funnel-track"><div class="funnel-fill" style="width:${Math.round((st.n / base) * 100)}%;background:${st.color}"></div></div>
+            <span style="font-size:0.85rem;font-weight:600">${st.n} <span style="font-weight:400;color:var(--fg-muted)">(${Math.round((st.n / base) * 100)}%)</span></span>
+          </div>
+        `).join('');
+        const deviceEntries = Object.entries(s.devices);
+        const deviceTotal = deviceEntries.reduce((a, [, n]) => a + n, 0) || 1;
+        const deviceHtml = deviceEntries.map(([dev, n]) => `${dev} ${Math.round((n / deviceTotal) * 100)}%`).join(' &middot; ') || 'No opens yet';
+        const seedHtml = s.seedResults.length
+          ? s.seedResults.map(sr => `${sr.provider}: ${sr.placement}`).join(' &middot; ')
+          : 'No seed addresses configured';
+
+        card.querySelector('.stats-box').innerHTML = `
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem;margin-top:0.5rem">${funnelHtml}</div>
+          <div style="display:flex;gap:1.5rem;margin-top:0.85rem;padding-top:0.7rem;border-top:1px solid var(--border-soft);font-size:0.8rem;color:var(--fg-muted);flex-wrap:wrap">
+            <span>${deviceHtml}</span>
+            <span>Click-to-open: ${s.clickToOpenRate != null ? s.clickToOpenRate + '%' : '—'}</span>
+            <span>Avg. time to first open: ${s.avgMinutesToFirstOpen != null ? s.avgMinutesToFirstOpen + ' min' : '—'}</span>
+            <span>Seed placement: ${seedHtml}</span>
+          </div>
+        `;
       };
       wrap.appendChild(card);
     }
@@ -300,23 +538,64 @@ const RENDERERS = {
   },
 
   'needs-attention': async () => {
-    const flags = await api('/api/flags');
-    const wrap = el('<div><div class="card"><h2>Needs Attention</h2><p style="color:#666;font-size:0.85rem">Automatically flagged: bounce, 5+ opens with no click, or unsubscribe within 24h of a send.</p></div></div>');
-    if (flags.length === 0) {
-      wrap.appendChild(el('<div class="empty">No flags yet.</div>'));
-      return wrap;
+    const SEVERITY_BADGE = { critical: 'warn', warning: 'caution', opportunity: 'info' };
+    const SEVERITY_LABEL = { critical: 'Critical', warning: 'Warning', opportunity: 'Opportunity' };
+    let sortBy = 'severity';
+
+    const wrap = el(`
+      <div>
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
+          <div>
+            <h2 style="margin:0 0 0.2rem">Needs Attention</h2>
+            <p style="color:var(--fg-muted);font-size:0.85rem;margin:0">Automatically flagged: bounce, 5+ opens with no click, unsubscribe within 24h, or a reply.</p>
+          </div>
+          <div id="na-sort-controls" style="display:flex;gap:0.3rem"></div>
+        </div>
+        <div id="na-table-wrap"></div>
+      </div>
+    `);
+
+    const sortControls = wrap.querySelector('#na-sort-controls');
+    const tableWrap = wrap.querySelector('#na-table-wrap');
+
+    function renderSortControls() {
+      sortControls.innerHTML = '<span style="color:var(--fg-muted);font-size:0.78rem;align-self:center;margin-right:0.2rem">Sort:</span>';
+      for (const [key, label] of [['severity', 'Severity'], ['score', 'Score'], ['newest', 'Newest']]) {
+        const btn = el(`<button class="filter-chip ${sortBy === key ? 'active' : ''}">${label}</button>`);
+        btn.onclick = async () => { sortBy = key; renderSortControls(); await renderTable(); };
+        sortControls.appendChild(btn);
+      }
     }
-    const table = el(`<table><thead><tr><th>Contact</th><th>Reason</th><th>Created</th><th></th></tr></thead><tbody></tbody></table>`);
-    const tbody = table.querySelector('tbody');
-    for (const f of flags) {
-      const row = el(`<tr><td>${f.email}</td><td>${f.reason}</td><td>${f.created_at}</td><td><button class="resolve-btn">Resolve</button></td></tr>`);
-      row.querySelector('.resolve-btn').onclick = async () => {
-        await api(`/api/flags/${f.id}/resolve`, { method: 'POST' });
-        showPage('needs-attention');
-      };
-      tbody.appendChild(row);
+
+    async function renderTable() {
+      const flags = await api(`/api/flags?sort=${sortBy}`);
+      tableWrap.innerHTML = '';
+      if (flags.length === 0) {
+        tableWrap.appendChild(el('<div class="empty">No flags yet.</div>'));
+        return;
+      }
+      const table = el(`<table><thead><tr><th>Contact</th><th>Flag</th><th>Score</th><th>Created</th><th></th></tr></thead><tbody></tbody></table>`);
+      const tbody = table.querySelector('tbody');
+      for (const f of flags) {
+        const badgeClass = SEVERITY_BADGE[f.severity] || 'caution';
+        const row = el(`<tr>
+          <td>${f.email}</td>
+          <td><span class="badge ${badgeClass}">${SEVERITY_LABEL[f.severity] || f.severity}</span> ${f.reason}</td>
+          <td style="font-family:ui-monospace,monospace">${f.engagementScore}</td>
+          <td>${f.created_at}</td>
+          <td><button class="resolve-btn">Resolve</button></td>
+        </tr>`);
+        row.querySelector('.resolve-btn').onclick = async () => {
+          await api(`/api/flags/${f.id}/resolve`, { method: 'POST' });
+          await renderTable();
+        };
+        tbody.appendChild(row);
+      }
+      tableWrap.appendChild(table);
     }
-    wrap.appendChild(table);
+
+    renderSortControls();
+    await renderTable();
     return wrap;
   },
 
@@ -476,11 +755,21 @@ const RENDERERS = {
       return wrap;
     }
     for (const r of replies) {
+      const trackBadge = r.track
+        ? `<span class="badge ${r.track === 'A' ? 'caution' : 'info'}" style="margin-left:0.4rem">Track ${r.track}</span>`
+        : '';
       const card = el(`
-        <div class="card">
-          <strong>${r.email}</strong> ${r.name ? '(' + r.name + ')' : ''} — ${r.created_at}<br>
+        <div class="card" style="${r.read ? 'opacity:0.72' : ''}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem">
+            <div>
+              ${!r.read ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--header-bg);margin-right:0.4rem"></span>' : ''}
+              <strong style="${r.read ? 'font-weight:500' : ''}">${r.email}</strong> ${r.name ? '(' + r.name + ')' : ''}
+              ${trackBadge}
+            </div>
+            <span style="font-size:0.75rem;color:var(--fg-faint);white-space:nowrap">${r.created_at}</span>
+          </div>
           <em>${r.subject || ''}</em>
-          <p style="white-space:pre-wrap">${(r.body || '').slice(0, 300)}</p>
+          <p style="white-space:pre-wrap;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${(r.body || '').slice(0, 300)}</p>
           <button class="view-thread-btn">View & Reply</button>
         </div>
       `);
@@ -492,20 +781,98 @@ const RENDERERS = {
 
   reputation: async () => {
     const status = await api('/api/reputation/status');
-    return el(`
-      <div class="card">
-        <h2>Sender Reputation</h2>
+
+    const healthColor = status.healthScore >= 80 ? 'var(--health-good)' : status.healthScore >= 50 ? 'var(--health-warn)' : 'var(--health-bad)';
+    const trend = status.healthTrend;
+    const trendMin = Math.min(...trend.map(t => t.score));
+    const trendMax = Math.max(...trend.map(t => t.score));
+    const range = Math.max(1, trendMax - trendMin);
+    const points = trend.map((t, i) => {
+      const x = (i / (trend.length - 1)) * 280;
+      const y = 52 - ((t.score - trendMin) / range) * 44;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const lastPoint = points.split(' ').pop().split(',');
+
+    const wrap = el(`
+      <div>
+        <div class="card" style="display:flex;gap:2rem;align-items:center;flex-wrap:wrap">
+          <div>
+            <div style="font-size:0.7rem;letter-spacing:0.06em;text-transform:uppercase;color:var(--fg-muted);margin-bottom:0.35rem">Sender health</div>
+            <div style="display:flex;align-items:baseline;gap:0.5rem">
+              <span style="font-size:3.2rem;font-weight:700;color:${healthColor};line-height:1">${status.healthScore}</span>
+              <span style="font-size:1rem;color:var(--fg-muted)">/ 100</span>
+            </div>
+            <div style="margin-top:0.5rem">
+              ${status.throttled
+                ? `<span class="badge warn">THROTTLED — ${status.throttleReason}</span>`
+                : `<span class="badge ok">Healthy &middot; ${status.warmupActive ? 'Day ' + status.daysSinceWarmupStart + ' of warm-up' : 'warm-up skipped'}</span>`}
+            </div>
+          </div>
+          <div style="flex:1;min-width:260px">
+            <div style="font-size:0.7rem;letter-spacing:0.06em;text-transform:uppercase;color:var(--fg-muted);margin-bottom:0.5rem">14-day trend</div>
+            <svg viewBox="0 0 280 64" width="100%" height="64" style="display:block;overflow:visible">
+              <line x1="0" y1="52" x2="280" y2="52" stroke="var(--border-soft)" stroke-width="1" />
+              <polyline points="${points}" fill="none" stroke="${healthColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+              <circle cx="${lastPoint[0]}" cy="${lastPoint[1]}" r="4" fill="${healthColor}" />
+            </svg>
+            <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--fg-faint);margin-top:0.25rem">
+              <span>${trend[0].day}</span><span>today</span>
+            </div>
+          </div>
+        </div>
+
         <div class="stat-row">
           <div class="stat"><div class="value">${status.bounceRate}%</div><div class="label">Bounce rate</div></div>
           <div class="stat"><div class="value">${status.complaintRate}%</div><div class="label">Complaint rate</div></div>
-          <div class="stat"><div class="value">${status.daysSinceWarmupStart}</div><div class="label">Days since warm-up start</div></div>
+          <div class="stat"><div class="value">${status.trackB.dailyCap ?? '∞'}<span style="font-size:0.85rem;font-weight:400;color:var(--fg-muted)"> /day</span></div><div class="label">Track B cap</div></div>
+          <div class="stat"><div class="value">${status.trackB.remainingToday ?? '∞'}</div><div class="label">Remaining today</div></div>
         </div>
-        <p>Warm-up active: <strong>${status.warmupActive}</strong></p>
-        <p>Track B daily cap: <strong>${status.trackB.dailyCap ?? 'no cap'}</strong>, sent today: ${status.trackB.sentToday}, remaining: ${status.trackB.remainingToday ?? '—'}</p>
-        <p>Track A sent today: ${status.trackA.sentToday}</p>
-        <p>Status: ${status.throttled ? `<span class="badge warn">THROTTLED — ${status.throttleReason}</span>` : '<span class="badge ok">Healthy</span>'}</p>
+
+        <div class="card">
+          <div style="font-size:0.95rem;font-weight:600;margin-bottom:0.75rem">Inbox placement by provider</div>
+          <div id="seed-placement"></div>
+          <div style="font-size:0.72rem;color:var(--fg-faint);margin-top:0.75rem">Real placement checking needs the Stage 5 IMAP watcher to read the seed mailboxes — not built yet, so this honestly shows "unknown" rather than an invented percentage.</div>
+        </div>
+
+        <div class="card">
+          <div style="font-size:0.95rem;font-weight:600;margin-bottom:0.5rem">Domain authentication (SPF / DKIM / DMARC)</div>
+          <div style="display:flex;gap:0.4rem">
+            <input id="domain-auth-input" placeholder="yourdomain.com" style="margin:0" />
+            <button class="primary" id="domain-auth-check" style="white-space:nowrap">Check</button>
+          </div>
+          <div id="domain-auth-result" style="margin-top:0.6rem"></div>
+        </div>
       </div>
     `);
+
+    const seedBox = wrap.querySelector('#seed-placement');
+    if (status.seedPlacement.length === 0) {
+      seedBox.innerHTML = '<div class="empty">No seed addresses configured — set SEED_ADDRESSES to enable this check.</div>';
+    } else {
+      seedBox.innerHTML = status.seedPlacement.map(p => `
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.4rem">
+          <span style="width:70px;font-size:0.82rem;color:var(--fg-muted)">${p.provider}</span>
+          <span class="badge info">unknown (${p.total} pending)</span>
+        </div>
+      `).join('');
+    }
+
+    wrap.querySelector('#domain-auth-check').onclick = async () => {
+      const domain = wrap.querySelector('#domain-auth-input').value.trim();
+      const resultBox = wrap.querySelector('#domain-auth-result');
+      if (!domain) return;
+      resultBox.innerHTML = 'Checking…';
+      try {
+        const result = await api(`/api/reputation/domain-auth?domain=${encodeURIComponent(domain)}`);
+        const row = (label, r) => `<div style="margin-bottom:0.3rem"><span class="badge ${r.found ? 'ok' : 'warn'}">${r.found ? 'found' : 'not found'}</span> <strong>${label}</strong>${r.record ? ` — <code style="font-size:0.75rem">${r.record.slice(0,80)}</code>` : ''}${r.error ? ` — <span style="color:var(--fg-faint);font-size:0.78rem">${r.error}</span>` : ''}</div>`;
+        resultBox.innerHTML = row('SPF', result.spf) + row('DMARC', result.dmarc) + row('DKIM', result.dkim);
+      } catch (err) {
+        resultBox.innerHTML = `<span class="badge warn">${err.message}</span>`;
+      }
+    };
+
+    return wrap;
   },
 };
 
