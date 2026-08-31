@@ -55,7 +55,7 @@ optional).
 Each deployment is fully independent — your own Railway project, your
 own database, your own credentials. Nobody else can see your data.
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.com/template/3t81gD)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.com/template/EHIngE)
 
 Clicking this asks you to fill in the values below, then builds and
 starts your own copy. Takes about 10–15 minutes if you already have your
