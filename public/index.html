@@ -221,13 +221,22 @@ const RENDERERS = {
 
   'needs-attention': async () => {
     const flags = await api('/api/flags');
-    const wrap = el('<div><div class="card"><h2>Needs Attention</h2><p style="color:#666;font-size:0.85rem">Populated once flagging rules (Stage 3) are built.</p></div></div>');
+    const wrap = el('<div><div class="card"><h2>Needs Attention</h2><p style="color:#666;font-size:0.85rem">Automatically flagged: bounce, 5+ opens with no click, or unsubscribe within 24h of a send.</p></div></div>');
     if (flags.length === 0) {
       wrap.appendChild(el('<div class="empty">No flags yet.</div>'));
       return wrap;
     }
-    const rows = flags.map(f => `<tr><td>${f.email}</td><td>${f.reason}</td><td>${f.created_at}</td></tr>`).join('');
-    wrap.appendChild(el(`<table><thead><tr><th>Contact</th><th>Reason</th><th>Created</th></tr></thead><tbody>${rows}</tbody></table>`));
+    const table = el(`<table><thead><tr><th>Contact</th><th>Reason</th><th>Created</th><th></th></tr></thead><tbody></tbody></table>`);
+    const tbody = table.querySelector('tbody');
+    for (const f of flags) {
+      const row = el(`<tr><td>${f.email}</td><td>${f.reason}</td><td>${f.created_at}</td><td><button class="resolve-btn">Resolve</button></td></tr>`);
+      row.querySelector('.resolve-btn').onclick = async () => {
+        await api(`/api/flags/${f.id}/resolve`, { method: 'POST' });
+        showPage('needs-attention');
+      };
+      tbody.appendChild(row);
+    }
+    wrap.appendChild(table);
     return wrap;
   },
 

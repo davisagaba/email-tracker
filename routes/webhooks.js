@@ -1,5 +1,6 @@
 const express = require('express');
 const { getDb } = require('../db');
+const { createFlagIfNotExists } = require('../lib/flags');
 
 const router = express.Router();
 
@@ -55,6 +56,10 @@ router.post('/sendgrid', (req, res) => {
 
     insertEvent.run(send.tracking_id, internalType);
     logged++;
+
+    if (internalType === 'bounce') {
+      createFlagIfNotExists(contact.id, 'Bounced');
+    }
   }
 
   res.json({ received: events.length, logged, skipped, signature: sigResult.verified });

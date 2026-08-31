@@ -118,4 +118,11 @@ router.get('/flags', (req, res) => {
   res.json(rows);
 });
 
+router.post('/flags/:id/resolve', (req, res) => {
+  const db = getDb();
+  const result = db.prepare('UPDATE flags SET resolved = 1 WHERE id = ?').run(req.params.id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Flag not found' });
+  res.json({ resolved: true });
+});
+
 module.exports = router;
