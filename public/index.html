@@ -214,25 +214,38 @@ const RENDERERS = {
         </select>
         <label>Body (HTML)</label>
         <textarea id="camp-body" rows="8" placeholder="Hi {{name}}, ..."></textarea>
+        <label>Upload an HTML template (optional — fills the body above; any tracking/embed codes already in it are kept, our open/click tracking is layered on top)</label>
+        <input type="file" id="camp-template-file" accept=".html,.htm" />
+        <label>Attach a file to the email (optional — sent to every recipient as a real attachment, max 15MB)</label>
+        <input type="file" id="camp-attachment-file" />
         <p style="font-size:0.85rem;color:#666">Will send to all ${subscribedCount} subscribed contact(s). No recipient filtering in this phase.</p>
         <button class="primary" id="camp-save">Save Draft</button>
         <div id="camp-result" style="margin-top:1rem"></div>
       </div>
     `);
+
+    wrap.querySelector('#camp-template-file').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => { wrap.querySelector('#camp-body').value = reader.result; };
+      reader.readAsText(file);
+    });
+
     wrap.querySelector('#camp-save').onclick = async () => {
       const resultBox = wrap.querySelector('#camp-result');
       try {
-        const campaign = await api('/api/campaigns', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: wrap.querySelector('#camp-name').value,
-            subject: wrap.querySelector('#camp-subject').value,
-            track: wrap.querySelector('#camp-track').value,
-            body: wrap.querySelector('#camp-body').value,
-          }),
-        });
-        resultBox.innerHTML = `<span class="badge ok">Draft saved</span> Campaign #${campaign.id}. Go to Campaigns to send it.`;
+        const formData = new FormData();
+        formData.append('name', wrap.querySelector('#camp-name').value);
+        formData.append('subject', wrap.querySelector('#camp-subject').value);
+        formData.append('track', wrap.querySelector('#camp-track').value);
+        formData.append('body', wrap.querySelector('#camp-body').value);
+        const attachmentFile = wrap.querySelector('#camp-attachment-file').files[0];
+        if (attachmentFile) formData.append('attachment', attachmentFile);
+
+        const campaign = await api('/api/campaigns', { method: 'POST', body: formData });
+        const attachmentNote = campaign.attachment_filename ? ` Attachment: ${campaign.attachment_filename}.` : '';
+        resultBox.innerHTML = `<span class="badge ok">Draft saved</span> Campaign #${campaign.id}.${attachmentNote} Go to Campaigns to send it.`;
       } catch (err) {
         resultBox.innerHTML = `<span class="badge warn">${err.message}</span>`;
       }
@@ -253,6 +266,7 @@ const RENDERERS = {
           <strong>${c.name}</strong> — ${c.subject}
           <span class="badge ${c.status === 'sent' ? 'ok' : 'warn'}">${c.status}</span>
           (Track ${c.track})
+          ${c.attachment_filename ? `<br><a href="/api/campaigns/${c.id}/attachment" target="_blank">📎 ${c.attachment_filename}</a>` : ''}
           <div style="margin-top:0.5rem">
             ${c.status === 'draft' ? '<button class="send-btn primary">Send now</button>' : ''}
             <button class="stats-btn">View stats</button>

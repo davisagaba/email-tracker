@@ -56,13 +56,23 @@ router.get('/imports', (req, res) => {
 
 router.get('/campaigns', (req, res) => {
   const db = getDb();
-  const rows = db.prepare('SELECT * FROM campaigns ORDER BY created_at DESC').all();
+  const rows = db
+    .prepare(
+      `SELECT id, name, subject, body, track, status, created_at, sent_at, attachment_filename, attachment_content_type
+       FROM campaigns ORDER BY created_at DESC`
+    )
+    .all();
   res.json(rows);
 });
 
 router.get('/campaigns/:id/stats', (req, res) => {
   const db = getDb();
-  const campaign = db.prepare('SELECT * FROM campaigns WHERE id = ?').get(req.params.id);
+  const campaign = db
+    .prepare(
+      `SELECT id, name, subject, body, track, status, created_at, sent_at, attachment_filename, attachment_content_type
+       FROM campaigns WHERE id = ?`
+    )
+    .get(req.params.id);
   if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
 
   const sentCount = db

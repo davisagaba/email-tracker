@@ -122,12 +122,27 @@ CREATE TABLE IF NOT EXISTS daily_send_log (
 );
 `;
 
+// Columns added after the initial CREATE TABLE need an explicit migration
+// since "CREATE TABLE IF NOT EXISTS" doesn't touch existing tables.
+function migrate(database) {
+  const campaignColumns = database.prepare(`PRAGMA table_info(campaigns)`).all().map((c) => c.name);
+  const addColumn = (name, def) => {
+    if (!campaignColumns.includes(name)) {
+      database.exec(`ALTER TABLE campaigns ADD COLUMN ${name} ${def}`);
+    }
+  };
+  addColumn('attachment_filename', 'TEXT');
+  addColumn('attachment_content_type', 'TEXT');
+  addColumn('attachment_data', 'BLOB');
+}
+
 function getDb() {
   if (db) return db;
   db = new DatabaseSync(DB_PATH);
   db.exec('PRAGMA journal_mode = WAL');
   db.exec('PRAGMA foreign_keys = ON');
   db.exec(SCHEMA);
+  migrate(db);
   return db;
 }
 

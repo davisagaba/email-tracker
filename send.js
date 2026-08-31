@@ -53,6 +53,14 @@ async function sendCampaign(campaignId) {
     }
   }
 
+  const attachments = campaign.attachment_data
+    ? [{
+        filename: campaign.attachment_filename,
+        content: Buffer.from(campaign.attachment_data),
+        contentType: campaign.attachment_content_type || undefined,
+      }]
+    : undefined;
+
   let sentCount = 0;
   for (const contact of toSend) {
     const trackingId = generateTrackingId();
@@ -69,6 +77,7 @@ async function sendCampaign(campaignId) {
         subject: personalize(campaign.subject, contact),
         html: trackedBody,
         messageId: buildMessageId(trackingId),
+        attachments,
       });
       await sleep(SEND_DELAY_MS);
     }
@@ -85,6 +94,7 @@ async function sendCampaign(campaignId) {
         to: seedAddress,
         subject: campaign.subject,
         html: injectTracking(campaign.body || '', PUBLIC_URL, generateTrackingId()),
+        attachments,
       });
       await sleep(SEND_DELAY_MS);
     }
