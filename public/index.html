@@ -46,6 +46,7 @@ const PAGES = [
   { id: 'new-campaign', label: 'New Campaign' },
   { id: 'campaigns', label: 'Campaigns' },
   { id: 'needs-attention', label: 'Needs Attention' },
+  { id: 'inbox', label: 'Inbox' },
   { id: 'extension-sync', label: 'Extension Sync' },
   { id: 'reputation', label: 'Reputation' },
 ];
@@ -88,17 +89,82 @@ async function showPage(id) {
   }
 }
 
-function contactsTable(contacts, withSubscribed) {
+function contactsTable(contacts, withSubscribed, withThread) {
   if (contacts.length === 0) return el('<div class="empty">No contacts yet.</div>');
-  const rows = contacts.map(c => `
-    <tr>
-      <td>${c.email}</td>
-      <td>${c.name || ''}</td>
-      <td>${c.company || ''}</td>
-      <td>${c.phone || ''}</td>
-      ${withSubscribed ? `<td>${c.subscribed ? '<span class="badge ok">subscribed</span>' : '<span class="badge warn">unsubscribed</span>'}</td>` : ''}
-    </tr>`).join('');
-  return el(`<table><thead><tr><th>Email</th><th>Name</th><th>Company</th><th>Phone</th>${withSubscribed ? '<th>Status</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>`);
+  const table = el(`<table><thead><tr><th>Email</th><th>Name</th><th>Company</th><th>Phone</th>${withSubscribed ? '<th>Status</th>' : ''}${withThread ? '<th></th>' : ''}</tr></thead><tbody></tbody></table>`);
+  const tbody = table.querySelector('tbody');
+  for (const c of contacts) {
+    const row = el(`
+      <tr>
+        <td>${c.email}</td>
+        <td>${c.name || ''}</td>
+        <td>${c.company || ''}</td>
+        <td>${c.phone || ''}</td>
+        ${withSubscribed ? `<td>${c.subscribed ? '<span class="badge ok">subscribed</span>' : '<span class="badge warn">unsubscribed</span>'}</td>` : ''}
+        ${withThread ? '<td><button class="thread-btn">Thread</button></td>' : ''}
+      </tr>`);
+    if (withThread) {
+      row.querySelector('.thread-btn').onclick = () => showContactThread(c.id, c.email);
+    }
+    tbody.appendChild(row);
+  }
+  return table;
+}
+
+// Full email thread for one contact, plus a reply box — reused from both
+// the Contacts page and the Inbox reply feed.
+async function showContactThread(contactId, email) {
+  const [messages] = await Promise.all([api(`/api/contacts/${contactId}/messages`)]);
+  const wrap = el(`
+    <div>
+      <button id="back-btn" style="margin-bottom:1rem">&larr; Back</button>
+      <div class="card">
+        <h2>Thread with ${email}</h2>
+        <div id="thread-messages"></div>
+        <label>Reply</label>
+        <textarea id="reply-body" rows="4" placeholder="Type your reply..."></textarea>
+        <button class="primary" id="reply-send">Send Reply</button>
+        <div id="reply-result" style="margin-top:0.5rem"></div>
+      </div>
+    </div>
+  `);
+
+  wrap.querySelector('#back-btn').onclick = () => showPage('inbox');
+
+  const msgBox = wrap.querySelector('#thread-messages');
+  if (messages.length === 0) {
+    msgBox.appendChild(el('<div class="empty">No messages yet.</div>'));
+  } else {
+    for (const m of messages) {
+      msgBox.appendChild(el(`
+        <div class="card" style="background:${m.direction === 'inbound' ? '#f0f4ff' : '#f5f5f5'}">
+          <strong>${m.direction === 'inbound' ? 'From contact' : 'You'}</strong> — ${m.created_at}<br>
+          <em>${m.subject || ''}</em>
+          <p style="white-space:pre-wrap">${m.body || ''}</p>
+        </div>
+      `));
+    }
+  }
+
+  wrap.querySelector('#reply-send').onclick = async () => {
+    const body = wrap.querySelector('#reply-body').value;
+    const resultBox = wrap.querySelector('#reply-result');
+    if (!body) return;
+    try {
+      const result = await api(`/api/contacts/${contactId}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body }),
+      });
+      resultBox.innerHTML = `<span class="badge ok">Sent${result.simulated ? ' (simulated)' : ''}</span>`;
+      showContactThread(contactId, email);
+    } catch (err) {
+      resultBox.innerHTML = `<span class="badge warn">${err.message}</span>`;
+    }
+  };
+
+  main.innerHTML = '';
+  main.appendChild(wrap);
 }
 
 const RENDERERS = {
@@ -120,7 +186,7 @@ const RENDERERS = {
   contacts: async () => {
     const contacts = await api('/api/contacts');
     const wrap = el('<div><div class="card"><h2>Contacts (sendable list)</h2></div></div>');
-    wrap.appendChild(contactsTable(contacts, true));
+    wrap.appendChild(contactsTable(contacts, true, true));
     return wrap;
   },
 
@@ -297,6 +363,39 @@ const RENDERERS = {
       }
     };
 
+    return wrap;
+  },
+
+  inbox: async () => {
+    const [replies, imapStatus] = await Promise.all([api('/api/replies'), api('/api/imap/status')]);
+    const wrap = el(`
+      <div>
+        <div class="card">
+          <h2>Inbox — Recent Replies</h2>
+          <p style="font-size:0.85rem;color:#666">
+            IMAP reply detection: ${imapStatus.configured
+              ? '<span class="badge ok">configured</span>'
+              : '<span class="badge warn">not configured</span> — set IMAP_HOST/IMAP_USER/IMAP_PASS to enable'}
+          </p>
+        </div>
+      </div>
+    `);
+    if (replies.length === 0) {
+      wrap.appendChild(el('<div class="empty">No replies yet.</div>'));
+      return wrap;
+    }
+    for (const r of replies) {
+      const card = el(`
+        <div class="card">
+          <strong>${r.email}</strong> ${r.name ? '(' + r.name + ')' : ''} — ${r.created_at}<br>
+          <em>${r.subject || ''}</em>
+          <p style="white-space:pre-wrap">${(r.body || '').slice(0, 300)}</p>
+          <button class="view-thread-btn">View & Reply</button>
+        </div>
+      `);
+      card.querySelector('.view-thread-btn').onclick = () => showContactThread(r.contact_id, r.email);
+      wrap.appendChild(card);
+    }
     return wrap;
   },
 

@@ -2,6 +2,7 @@ require('dotenv').config();
 const path = require('path');
 const express = require('express');
 const { getDb } = require('./db');
+const { startPolling } = require('./lib/imapWatcher');
 
 getDb(); // initialize schema on boot
 
@@ -15,6 +16,8 @@ app.use('/api/import', require('./routes/imports'));
 app.use('/api/sync-tokens', require('./routes/syncTokens'));
 app.use('/api/campaigns', require('./routes/campaigns'));
 app.use('/api/reputation', require('./routes/reputation'));
+app.use('/api/imap', require('./routes/imap'));
+app.use('/api', require('./routes/messages'));
 
 app.use('/extension-sync', require('./routes/extensionSync'));
 app.use('/track', require('./routes/track'));
@@ -31,6 +34,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Email tracker listening on port ${PORT}`);
+  startPolling();
 });
 
 module.exports = app;

@@ -63,6 +63,16 @@ https://<your-deployed-url>/webhooks/sendgrid
 `SENDGRID_WEBHOOK_VERIFICATION_KEY` is optional — only needed if you want
 to cryptographically verify the events really came from SendGrid.
 
+## Reply detection & in-app inbox (optional)
+
+To see replies inside the dashboard and get notified when a contact
+writes back, give the app IMAP access to the **same inbox** campaigns
+send from (not a separate mailbox) — `IMAP_HOST`, `IMAP_PORT`,
+`IMAP_USER`, `IMAP_PASS`. This is usually the same login you already
+used for `SMTP_B_*`, plus an app password if your provider requires one
+for IMAP specifically (Gmail and Outlook both do). Leave these blank to
+skip reply detection entirely — everything else keeps working.
+
 ## Everything else
 
 See the variable table in `README.md` for `PUBLIC_URL`,

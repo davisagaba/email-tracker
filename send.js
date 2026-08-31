@@ -5,6 +5,7 @@ const { generateTrackingId } = require('./lib/tracking');
 const { checkThrottle, incrementDailySendLog, getDailyCap, getTodaySentCount } = require('./lib/reputation');
 const { getSeedAddresses, logSeedResults } = require('./lib/seedTest');
 const { notifyCampaignSent } = require('./lib/discord');
+const { buildMessageId } = require('./lib/messageId');
 
 const SEND_DELAY_MS = Number(process.env.SEND_DELAY_MS || 200);
 const PUBLIC_URL = process.env.PUBLIC_URL || 'http://localhost:3000';
@@ -67,6 +68,7 @@ async function sendCampaign(campaignId) {
         to: contact.email,
         subject: personalize(campaign.subject, contact),
         html: trackedBody,
+        messageId: buildMessageId(trackingId),
       });
       await sleep(SEND_DELAY_MS);
     }

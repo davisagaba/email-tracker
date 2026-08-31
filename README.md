@@ -25,16 +25,30 @@ resolved from the dashboard.
 
 **Stage 4 (Discord notifications) — complete:** four independent,
 client-configured webhook channels — new contacts, flagged contacts,
-campaign sends, and replies (the last fires once Stage 5 exists; the
-channel itself is ready now). See `SETUP.md`.
+campaign sends, and replies. See `SETUP.md`.
 
-**Known limitation:** actual email *delivery* through real SMTP hasn't
-been tested (no outbound SMTP access in the build environment) — confirm
-this on your own deployment. Seed testing logs placement as "unknown"
-until Stage 5's IMAP watcher is built.
+**Stage 5 (reply detection + in-app inbox) — complete:** IMAP polling
+watcher matches incoming mail to a contact by Message-ID threading
+(primary) or sender address (fallback), logs a reply event, creates a
+"Replied" flag, and posts to `#replies`. Dashboard gains an Inbox page
+(reply feed) and a per-contact thread view with reply-in-place, sent
+through the same SMTP connection as campaigns and threaded correctly.
 
-**Not yet built:** reply detection + inbox (Stage 5), auto-reply
-(Stage 6, optional), Discord bot (Stage 7, optional).
+**Known limitations:**
+- Actual email *delivery* through real SMTP hasn't been tested (no
+  outbound SMTP access in the build environment) — confirm this on your
+  own deployment. Seed testing logs placement as "unknown" until an IMAP
+  placement check is added.
+- The IMAP reply-matching/logging *logic* has been directly unit-tested
+  with synthetic messages (threading match, address-fallback match, and
+  unmatched sender all confirmed correct) — but the actual network
+  connection to a real IMAP server has not been tested, since no real
+  mailbox credentials are available in this build environment. Confirm
+  the connection itself against your real inbox once deployed (`POST
+  /api/imap/check-now` triggers an on-demand check for this).
+
+**Not yet built:** auto-reply (Stage 6, optional), Discord bot (Stage 7,
+optional).
 
 ## Deploy your own instance
 
@@ -67,9 +81,14 @@ sending domain and SMTP credentials ready.
 | `SEED_ADDRESSES` | Optional | A comma-separated list of your own test email addresses across Gmail, Outlook, and Yahoo (e.g. `me@gmail.com,me@outlook.com`). Every campaign also sends to these so you can manually check whether it landed in your inbox or spam folder. Leave blank to skip this check. |
 | `SENDGRID_WEBHOOK_VERIFICATION_KEY` | Optional | Only needed if you want to cryptographically verify that bounce/complaint notifications really came from SendGrid. Safe to leave blank — notifications still work, just without that extra verification step. |
 | `DISCORD_WEBHOOK_NEW_CONTACTS` | Optional | Posts to a Discord channel of your choice whenever new contacts are added (CSV import or extension sync). See `SETUP.md` for how to get this URL from your own Discord server — takes about a minute. Leave blank to skip. |
-| `DISCORD_WEBHOOK_REPLIES` | Optional | Posts to Discord when a contact replies to a campaign. (This channel is ready now — the reply-detection feature that triggers it is coming in a later update.) |
+| `DISCORD_WEBHOOK_REPLIES` | Optional | Posts to Discord when a contact replies to a campaign. |
 | `DISCORD_WEBHOOK_FLAGGED` | Optional | Posts to Discord whenever a contact is automatically flagged for attention (bounced, opened 5+ times with no click, or unsubscribed right after a send). |
 | `DISCORD_WEBHOOK_CAMPAIGN_SENDS` | Optional | Posts to Discord with a summary every time a campaign finishes sending. |
+| `IMAP_HOST` | Optional | The incoming-mail server for the same inbox campaigns send from (not a separate mailbox). Enables reply detection and the in-app inbox. Leave blank to skip. |
+| `IMAP_PORT` | Optional | The IMAP port. `993` is standard for secure IMAP. |
+| `IMAP_USER` | Optional | The login for that inbox — usually the same as `SMTP_B_USER`/`SMTP_B_FROM`. |
+| `IMAP_PASS` | Optional | The password or app password for that inbox. Keep this secret. |
+| `IMAP_POLL_INTERVAL_MS` | Optional | How often to check for new replies, in milliseconds. `60000` (one minute) is a sensible default. |
 
 You do **not** need to set `PORT` — Railway assigns this automatically.
 
