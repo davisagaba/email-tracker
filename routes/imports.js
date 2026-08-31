@@ -1,5 +1,5 @@
 const express = require('express');
-const { parseCsv } = require('../lib/csv');
+const { parseCsv, parseEmailList } = require('../lib/csv');
 const { importRows, suggestMapping } = require('../lib/importer');
 
 const router = express.Router();
@@ -47,5 +47,31 @@ function handleImport(targetList) {
 
 router.post('/dedup', handleImport('dedup'));
 router.post('/supplier', handleImport('supplier'));
+
+// Plain email list import — for a client who only has a .txt file of bare
+// addresses with no name/company/phone, no CSV structure, no header row.
+// One address per line (or comma/semicolon-separated). Each row is
+// inserted with just an email; every other field stays null until a
+// richer import fills them in later (re-importing the same address with
+// a fuller row updates it in place, per the normal merge rules).
+function handleEmailListImport(targetList) {
+  return (req, res) => {
+    const { emails } = req.body || {};
+    if (!emails || typeof emails !== 'string' || !emails.trim()) {
+      return res.status(400).json({ error: 'Missing "emails" field with one address per line' });
+    }
+
+    const { rows, invalidLines } = parseEmailList(emails);
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'No valid email addresses found', invalidLines });
+    }
+
+    const result = importRows(targetList, rows, 'manual');
+    res.json({ ...result, invalidLineCount: invalidLines.length, invalidLines: invalidLines.slice(0, 20) });
+  };
+}
+
+router.post('/dedup/emails', handleEmailListImport('dedup'));
+router.post('/supplier/emails', handleEmailListImport('supplier'));
 
 module.exports = router;

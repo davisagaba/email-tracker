@@ -345,6 +345,17 @@ const RENDERERS = {
           <div id="paste-mapping" style="margin-top:0.8rem"></div>
           <div id="paste-result" style="margin-top:0.5rem"></div>
         </div>
+        <div class="card">
+          <h3>Plain email list (.txt)</h3>
+          <p style="font-size:0.85rem;color:#666">For a client who only has bare email addresses — no name, company, or phone, no header row. One address per line.</p>
+          <label>Target list</label>
+          <select id="emails-target"><option value="dedup">Dedup (sendable)</option><option value="supplier">Supplier (view-only)</option></select>
+          <label>Upload a .txt file, or paste addresses directly</label>
+          <input type="file" id="emails-file" accept=".txt,.csv" />
+          <textarea id="emails-textarea" rows="6" placeholder="a@example.com&#10;b@example.com&#10;c@example.com"></textarea>
+          <button class="primary" id="emails-import">Import Emails</button>
+          <div id="emails-result" style="margin-top:0.5rem"></div>
+        </div>
       </div>
     `);
 
@@ -415,6 +426,29 @@ const RENDERERS = {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ csv }),
         });
         renderMappingForm(preview.headers, preview.suggestedMapping);
+      } catch (err) {
+        resultBox.innerHTML = `<span class="badge warn">${err.message}</span>`;
+      }
+    };
+
+    wrap.querySelector('#emails-file').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => { wrap.querySelector('#emails-textarea').value = reader.result; };
+      reader.readAsText(file);
+    });
+
+    wrap.querySelector('#emails-import').onclick = async () => {
+      const target = wrap.querySelector('#emails-target').value;
+      const emails = wrap.querySelector('#emails-textarea').value;
+      const resultBox = wrap.querySelector('#emails-result');
+      try {
+        const result = await api(`/api/import/${target}/emails`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails }),
+        });
+        const invalidNote = result.invalidLineCount ? ` (${result.invalidLineCount} line(s) didn't look like an email and were skipped)` : '';
+        resultBox.innerHTML = `<span class="badge ok">Imported</span> added ${result.addedCount}, updated ${result.updatedCount}${invalidNote}`;
       } catch (err) {
         resultBox.innerHTML = `<span class="badge warn">${err.message}</span>`;
       }
