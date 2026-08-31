@@ -91,7 +91,7 @@
   .filter-chip { border: 1px solid var(--input-border); border-radius: 99px; padding: 0.2rem 0.65rem; font-size: 0.75rem; color: var(--fg-muted); cursor: pointer; background: none; }
   .filter-chip.active { background: var(--header-bg); color: var(--header-fg); border-color: var(--header-bg); }
   .score-bar-track { width: 70px; height: 6px; background: var(--funnel-track); border-radius: 99px; overflow: hidden; display: inline-block; vertical-align: middle; }
-  .score-bar-fill { height: 100%; }
+  .score-bar-fill { display: block; height: 100%; }
   .funnel-col { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; }
   .funnel-track { height: 10px; background: var(--funnel-track); border-radius: 99px; overflow: hidden; }
   .funnel-fill { height: 100%; }
@@ -278,17 +278,47 @@ async function showContactThread(contactId, email) {
 
 const RENDERERS = {
   dashboard: async () => {
-    const [contacts, campaigns, flags] = await Promise.all([
-      api('/api/contacts'), api('/api/campaigns'), api('/api/flags'),
+    const [contacts, campaigns, flags, replies, status] = await Promise.all([
+      api('/api/contacts'), api('/api/campaigns'), api('/api/flags'), api('/api/replies'), api('/api/reputation/status'),
     ]);
-    const wrap = el('<div></div>');
-    wrap.appendChild(el(`
-      <div class="stat-row">
-        <div class="stat"><div class="value">${contacts.length}</div><div class="label">Contacts</div></div>
-        <div class="stat"><div class="value">${campaigns.length}</div><div class="label">Campaigns</div></div>
-        <div class="stat"><div class="value">${flags.length}</div><div class="label">Needs Attention</div></div>
+    const unreadCount = replies.filter(r => !r.read).length;
+    const healthColor = status.healthScore >= 80 ? 'var(--health-good)' : status.healthScore >= 50 ? 'var(--health-warn)' : 'var(--health-bad)';
+    const topContacts = [...contacts].sort((a, b) => (b.engagementScore || 0) - (a.engagementScore || 0)).slice(0, 5);
+
+    const wrap = el(`
+      <div>
+        <div class="stat-row">
+          <div class="stat"><div class="value">${contacts.length}</div><div class="label">Contacts</div></div>
+          <div class="stat"><div class="value">${campaigns.length}</div><div class="label">Campaigns</div></div>
+          <div class="stat"><div class="value">${flags.length}</div><div class="label">Needs Attention</div></div>
+          <div class="stat"><div class="value">${unreadCount}</div><div class="label">Unread Replies</div></div>
+          <div class="stat"><div class="value" style="color:${healthColor}">${status.healthScore}</div><div class="label">Sender Health</div></div>
+        </div>
+        ${status.throttled ? `<div class="card"><span class="badge warn">THROTTLED</span> ${status.throttleReason} — sending is paused, see Reputation.</div>` : ''}
+        <div class="card">
+          <h3 style="margin-top:0">Top engaged contacts</h3>
+          <div id="top-contacts"></div>
+        </div>
       </div>
-    `));
+    `);
+
+    const topBox = wrap.querySelector('#top-contacts');
+    if (topContacts.length === 0 || topContacts.every(c => !c.engagementScore)) {
+      topBox.appendChild(el('<div class="empty">No engagement yet — send a campaign to start seeing activity here.</div>'));
+    } else {
+      const maxScore = Math.max(1, ...topContacts.map(c => c.engagementScore || 0));
+      for (const c of topContacts) {
+        const pct = Math.round(((c.engagementScore || 0) / maxScore) * 100);
+        topBox.appendChild(el(`
+          <div style="display:flex;align-items:center;gap:0.6rem;padding:0.3rem 0">
+            <span style="flex:1;font-size:0.85rem">${c.email}</span>
+            <span class="score-bar-track"><span class="score-bar-fill" style="width:${pct}%;background:${scoreColor(c.engagementScore || 0)}"></span></span>
+            <span style="font-family:ui-monospace,monospace;font-size:0.78rem;width:2rem;text-align:right">${c.engagementScore || 0}</span>
+          </div>
+        `));
+      }
+    }
+
     return wrap;
   },
 
