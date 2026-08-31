@@ -4,6 +4,7 @@ const { buildTransport, personalize, injectTracking } = require('./lib/mailer');
 const { generateTrackingId } = require('./lib/tracking');
 const { checkThrottle, incrementDailySendLog, getDailyCap, getTodaySentCount } = require('./lib/reputation');
 const { getSeedAddresses, logSeedResults } = require('./lib/seedTest');
+const { notifyCampaignSent } = require('./lib/discord');
 
 const SEND_DELAY_MS = Number(process.env.SEND_DELAY_MS || 200);
 const PUBLIC_URL = process.env.PUBLIC_URL || 'http://localhost:3000';
@@ -90,6 +91,15 @@ async function sendCampaign(campaignId) {
   db.prepare(
     `UPDATE campaigns SET status = 'sent', sent_at = datetime('now') WHERE id = ?`
   ).run(campaign.id);
+
+  notifyCampaignSent({
+    name: campaign.name,
+    track,
+    recipientCount: recipients.length,
+    actuallySentCount: sentCount,
+    cappedCount,
+    simulated: !configured,
+  });
 
   return {
     sent: true,

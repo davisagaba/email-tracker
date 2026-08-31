@@ -10,7 +10,7 @@ for how this was built.
 
 ## Build status
 
-**Phase 1 (Stage 0 baseline + Stage 1) — complete and tested against a
+**Stage 0 baseline + Stage 1 — complete and tested against a
 real running server:** two separate contact lists (sendable + view-only
 supplier reference), manual CSV import, browser-extension push import,
 in-app campaign builder, dual-track sending (established mailbox +
@@ -18,15 +18,23 @@ custom domain), automated reputation warm-up curve with automatic
 bounce/complaint throttling, seed-testing scaffolding, device breakdown,
 SendGrid bounce/complaint webhook.
 
+**Stage 3 (flagging) — complete:** automatic flags on bounce, 5+ opens
+with no click, and unsubscribe within 24h of a send, each deduplicated
+so repeated events don't spam the Needs Attention panel; flags can be
+resolved from the dashboard.
+
+**Stage 4 (Discord notifications) — complete:** four independent,
+client-configured webhook channels — new contacts, flagged contacts,
+campaign sends, and replies (the last fires once Stage 5 exists; the
+channel itself is ready now). See `SETUP.md`.
+
 **Known limitation:** actual email *delivery* through real SMTP hasn't
 been tested (no outbound SMTP access in the build environment) — confirm
 this on your own deployment. Seed testing logs placement as "unknown"
 until Stage 5's IMAP watcher is built.
 
-**Not yet built:** automatic flagging rules (Stage 3 — the flags table
-and dashboard panel exist, nothing creates a flag yet), Discord alerts
-(Stage 4), reply detection + inbox (Stage 5), auto-reply (Stage 6,
-optional), Discord bot (Stage 7, optional).
+**Not yet built:** reply detection + inbox (Stage 5), auto-reply
+(Stage 6, optional), Discord bot (Stage 7, optional).
 
 ## Deploy your own instance
 
@@ -58,8 +66,15 @@ sending domain and SMTP credentials ready.
 | `SMTP_A_FROM` | Optional | The email address that second account sends from. |
 | `SEED_ADDRESSES` | Optional | A comma-separated list of your own test email addresses across Gmail, Outlook, and Yahoo (e.g. `me@gmail.com,me@outlook.com`). Every campaign also sends to these so you can manually check whether it landed in your inbox or spam folder. Leave blank to skip this check. |
 | `SENDGRID_WEBHOOK_VERIFICATION_KEY` | Optional | Only needed if you want to cryptographically verify that bounce/complaint notifications really came from SendGrid. Safe to leave blank — notifications still work, just without that extra verification step. |
+| `DISCORD_WEBHOOK_NEW_CONTACTS` | Optional | Posts to a Discord channel of your choice whenever new contacts are added (CSV import or extension sync). See `SETUP.md` for how to get this URL from your own Discord server — takes about a minute. Leave blank to skip. |
+| `DISCORD_WEBHOOK_REPLIES` | Optional | Posts to Discord when a contact replies to a campaign. (This channel is ready now — the reply-detection feature that triggers it is coming in a later update.) |
+| `DISCORD_WEBHOOK_FLAGGED` | Optional | Posts to Discord whenever a contact is automatically flagged for attention (bounced, opened 5+ times with no click, or unsubscribed right after a send). |
+| `DISCORD_WEBHOOK_CAMPAIGN_SENDS` | Optional | Posts to Discord with a summary every time a campaign finishes sending. |
 
 You do **not** need to set `PORT` — Railway assigns this automatically.
+
+Setting up Discord notifications takes about a minute per channel and
+needs no bot or developer account — see `SETUP.md` for the exact steps.
 
 ## Local setup (for development, not required for the one-click deploy)
 
