@@ -341,11 +341,54 @@ const RENDERERS = {
           <select id="paste-target"><option value="dedup">Dedup (sendable)</option><option value="supplier">Supplier (view-only)</option></select>
           <label>Paste CSV or TSV (with header row)</label>
           <textarea id="paste-csv" rows="6" placeholder="email,name,company,phone&#10;a@example.com,Alice,Acme,555-1234"></textarea>
-          <button class="primary" id="paste-import">Import</button>
+          <button id="paste-preview">Preview &amp; Map Columns</button>
+          <div id="paste-mapping" style="margin-top:0.8rem"></div>
           <div id="paste-result" style="margin-top:0.5rem"></div>
         </div>
       </div>
     `);
+
+    const FIELD_LABELS = { email: 'Email (required)', name: 'Name', company: 'Company', phone: 'Phone' };
+
+    function renderMappingForm(headers, suggestedMapping) {
+      const mappingBox = wrap.querySelector('#paste-mapping');
+      const fieldRows = Object.entries(FIELD_LABELS).map(([field, label]) => {
+        const options = ['<option value="">— not in this file —</option>']
+          .concat(headers.map(h => `<option value="${h}" ${suggestedMapping[field] === h ? 'selected' : ''}>${h}</option>`));
+        return `<label>${label}</label><select class="map-select" data-field="${field}">${options.join('')}</select>`;
+      }).join('');
+
+      mappingBox.innerHTML = `
+        <div class="card" style="background:#f9f9fb">
+          <strong>Confirm which column is which</strong>
+          <p style="font-size:0.8rem;color:#666">Detected columns: ${headers.join(', ')}. Email must be mapped or nothing will import.</p>
+          ${fieldRows}
+          <button class="primary" id="paste-import-confirm" style="margin-top:0.5rem">Import</button>
+        </div>
+      `;
+
+      mappingBox.querySelector('#paste-import-confirm').onclick = async () => {
+        const target = wrap.querySelector('#paste-target').value;
+        const csv = wrap.querySelector('#paste-csv').value;
+        const resultBox = wrap.querySelector('#paste-result');
+        const mapping = {};
+        mappingBox.querySelectorAll('.map-select').forEach(sel => {
+          if (sel.value) mapping[sel.dataset.field] = sel.value;
+        });
+        if (!mapping.email) {
+          resultBox.innerHTML = `<span class="badge warn">Map a column to Email before importing.</span>`;
+          return;
+        }
+        try {
+          const result = await api(`/api/import/${target}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ csv, mapping }),
+          });
+          resultBox.innerHTML = `<span class="badge ok">Imported</span> added ${result.addedCount}, updated ${result.updatedCount}, skipped ${result.skippedCount}`;
+        } catch (err) {
+          resultBox.innerHTML = `<span class="badge warn">${err.message}</span>`;
+        }
+      };
+    }
 
     function renderTokens() {
       const list = wrap.querySelector('#token-list');
@@ -363,15 +406,15 @@ const RENDERERS = {
       renderTokens();
     };
 
-    wrap.querySelector('#paste-import').onclick = async () => {
-      const target = wrap.querySelector('#paste-target').value;
+    wrap.querySelector('#paste-preview').onclick = async () => {
       const csv = wrap.querySelector('#paste-csv').value;
       const resultBox = wrap.querySelector('#paste-result');
+      resultBox.innerHTML = '';
       try {
-        const result = await api(`/api/import/${target}`, {
+        const preview = await api('/api/import/preview', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ csv }),
         });
-        resultBox.innerHTML = `<span class="badge ok">Imported</span> added ${result.addedCount}, updated ${result.updatedCount}, skipped ${result.skippedCount}`;
+        renderMappingForm(preview.headers, preview.suggestedMapping);
       } catch (err) {
         resultBox.innerHTML = `<span class="badge warn">${err.message}</span>`;
       }
